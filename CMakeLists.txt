@@ -56,6 +56,44 @@ add_executable(VulkanApp
     "src/implementations.cpp"
 )
 
+# --- Shader Compilation ---
+set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders")
+set(SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+
+file(MAKE_DIRECTORY "${SHADER_BINARY_DIR}")
+
+set(SHADERS
+    "${SHADER_SOURCE_DIR}/shader.vert"
+    "${SHADER_SOURCE_DIR}/shader.frag"
+)
+
+find_program(GLSLC_EXECUTABLE glslc HINTS ENV VULKAN_SDK PATH_SUFFIXES Bin)
+if(NOT GLSLC_EXECUTABLE)
+    message(FATAL_ERROR "glslc not found. Install Vulkan SDK or add it to PATH.")
+endif()
+
+set(SPIRV_SHADERS
+    "${SHADER_BINARY_DIR}/shader.vert.spv"
+    "${SHADER_BINARY_DIR}/shader.frag.spv"
+)
+
+add_custom_command(
+    OUTPUT "${SHADER_BINARY_DIR}/shader.vert.spv"
+    COMMAND ${GLSLC_EXECUTABLE} -o "${SHADER_BINARY_DIR}/shader.vert.spv" "${SHADER_SOURCE_DIR}/shader.vert"
+    DEPENDS "${SHADER_SOURCE_DIR}/shader.vert"
+)
+
+add_custom_command(
+    OUTPUT "${SHADER_BINARY_DIR}/shader.frag.spv"
+    COMMAND ${GLSLC_EXECUTABLE} -o "${SHADER_BINARY_DIR}/shader.frag.spv" "${SHADER_SOURCE_DIR}/shader.frag"
+    DEPENDS "${SHADER_SOURCE_DIR}/shader.frag"
+)
+
+add_custom_target(Shaders ALL DEPENDS ${SPIRV_SHADERS})
+add_dependencies(VulkanApp Shaders)
+
+target_compile_definitions(VulkanApp PRIVATE SHADER_DIR="${SHADER_BINARY_DIR}")
+
 # --- Link Dependencies ---
 target_link_libraries(VulkanApp PRIVATE
     Vulkan::Vulkan

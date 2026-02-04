@@ -9,7 +9,9 @@ int main() {
 
         while (!appWindow.shouldClose()) {
             appWindow.pollEvents();
+            renderer.drawFrame();
         }
+        vkDeviceWaitIdle(renderer.getDevice());
 
     }
     catch (const std::exception& e) {
