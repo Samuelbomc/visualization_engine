@@ -14,7 +14,7 @@ public:
     WindowCreator(int width, int height, std::string title);
     ~WindowCreator();
 
-    // Disable copying (Window is a unique resource)
+    // Copia deshabilitada (la ventana es un recurso único).
     WindowCreator(const WindowCreator&) = delete;
     WindowCreator& operator=(const WindowCreator&) = delete;
 
@@ -25,7 +25,7 @@ public:
     GLFWwindow* getGLFWwindow() const { return window; }
     WindowDimensions getDimensions() const;
 
-    // Helper to create the Vulkan Surface (bridge between Window and Vulkan)
+    // Ayudante para crear la superficie de Vulkan (puente entre ventana y Vulkan).
     void createSurface(VkInstance instance, VkSurfaceKHR* surface);
 
 private:

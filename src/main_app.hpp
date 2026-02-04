@@ -6,12 +6,13 @@
 #include <optional>
 #include <glm/glm.hpp>
 #include <array>
+#include <cstdint>
 
 struct Vertex {
     glm::vec2 pos;
     glm::vec3 color;
 
-    // Helper: How far apart are vertices in memory?
+    // Ayudante: describe la separación de los vértices en memoria.
     static VkVertexInputBindingDescription getBindingDescription() {
         VkVertexInputBindingDescription bindingDescription{};
         bindingDescription.binding = 0;
@@ -20,17 +21,17 @@ struct Vertex {
         return bindingDescription;
     }
 
-    // Helper: How are the attributes (pos, color) arranged?
+    // Ayudante: describe cómo se organizan los atributos (pos, color).
     static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
         std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
-        // Position (Location 0 in shader)
+        // Posición (Location 0 en el shader)
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT; // vec2
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
-        // Color (Location 1 in shader)
+        // Color (Location 1 en el shader)
         attributeDescriptions[1].binding = 0;
         attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT; // vec3
@@ -46,28 +47,34 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
+// Geometría base del rectángulo.
+extern const std::vector<Vertex> vertices;
+extern const std::vector<uint16_t> indices;
+
 class VulkanRenderer {
 public:
     VulkanRenderer(WindowCreator& window);
     ~VulkanRenderer();
 
-    // Copying a renderer disabled for now
+    // Copia deshabilitada (el renderer gestiona recursos únicos).
     VulkanRenderer(const VulkanRenderer&) = delete;
     VulkanRenderer& operator=(const VulkanRenderer&) = delete;
 
+    // Renderiza un frame completo.
     void drawFrame();
 
+    // Acceso al dispositivo lógico.
     VkDevice getDevice() { return device; }
 
 private:
-    WindowCreator& window; // Reference to our window wrapper
+    WindowCreator& window; // Referencia a la ventana
 
-    // --- Vulkan Handles ---
+    // --- Handles de Vulkan ---
     VkInstance instance;
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE; // The GPU hardware
-    VkDevice device;                                  // The logical interface
-    VkQueue graphicsQueue;                            // The queue we submit work to
-    VkSurfaceKHR surface;                             // The drawing surface
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE; // GPU física
+    VkDevice device;                                  // Dispositivo lógico
+    VkQueue graphicsQueue;                            // Cola para enviar trabajo
+    VkSurfaceKHR surface;                             // Superficie de dibujo
     VkRenderPass renderPass;
     VkSwapchainKHR swapChain;
     VkFormat swapChainImageFormat;
@@ -83,13 +90,13 @@ private:
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
-    // --- Setup Helpers ---
+    // --- Ayudantes de configuración ---
     void createInstance();
     void setupDebugMessenger();
     void createSurface();
     void pickPhysicalDevice();
     void createLogicalDevice();
-	void createRenderPass();
+    void createRenderPass();
     void createSwapChain();
     void createImageViews();
     void createFramebuffers();
@@ -107,7 +114,7 @@ private:
     void updateUniformBuffer(uint32_t currentImage);
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-    // --- Validation Layers ---
+    // --- Capas de validación ---
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
@@ -118,10 +125,10 @@ private:
     const bool enableValidationLayers = true;
 #endif
 
-    // Helper: Check if GPU supports everything we need
+    // Ayudante: comprobar si la GPU soporta todo lo necesario.
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphicsFamily;
-        std::optional<uint32_t> presentFamily; // Queue that can display to screen
+        std::optional<uint32_t> presentFamily; // Cola que puede presentar en pantalla
 
         bool isComplete() {
             return graphicsFamily.has_value() && presentFamily.has_value();
@@ -131,7 +138,6 @@ private:
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
     bool checkValidationLayerSupport();
-
 
     std::vector<VkImage> swapChainImages;
     std::vector<VkImageView> swapChainImageViews;

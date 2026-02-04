@@ -19,10 +19,10 @@ void WindowCreator::initWindow() {
         throw std::runtime_error("Failed to initialize GLFW!");
     }
 
-    // Vulkan is context-less; it manages the context itself.
+    // Vulkan no usa contexto tradicional; gestiona su propio contexto.
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    // Enable resizing
+    // Habilitar redimensionamiento
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);

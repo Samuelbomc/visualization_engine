@@ -5,7 +5,7 @@ project(VulkanTutorial CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Find Dependencies ---
+# --- Buscar dependencias ---
 find_package(Vulkan REQUIRED)
 
 include(FetchContent)
@@ -43,20 +43,27 @@ FetchContent_Declare(
 FetchContent_GetProperties(stb)
 if(NOT stb_POPULATED)
     FetchContent_Populate(stb)
-    # Create a "fake" library target that just points to the folder
+    # Crear una librería "falsa" que apunta al directorio
     add_library(stb INTERFACE)
     target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 endif()
 
-# --- Create Executable ---
+# --- Crear ejecutable ---
 add_executable(VulkanApp
     "src/main.cpp"
     "src/main_app.cpp"
+    "src/vulkan_renderer_geometry.cpp"
+    "src/vulkan_renderer_setup.cpp"
+    "src/vulkan_renderer_swapchain.cpp"
+    "src/vulkan_renderer_pipeline.cpp"
+    "src/vulkan_renderer_buffers.cpp"
+    "src/vulkan_renderer_descriptors.cpp"
+    "src/vulkan_renderer_commands.cpp"
     "src/window_creator.cpp"
     "src/implementations.cpp"
 )
 
-# --- Shader Compilation ---
+# --- Compilación de shaders ---
 set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders")
 set(SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 
@@ -94,7 +101,7 @@ add_dependencies(VulkanApp Shaders)
 
 target_compile_definitions(VulkanApp PRIVATE SHADER_DIR="${SHADER_BINARY_DIR}")
 
-# --- Link Dependencies ---
+# --- Enlazar dependencias ---
 target_link_libraries(VulkanApp PRIVATE
     Vulkan::Vulkan
     glfw

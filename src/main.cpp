@@ -7,12 +7,12 @@ int main() {
         WindowCreator appWindow(800, 600, "Vulkan Menu");
         VulkanRenderer renderer(appWindow);
 
+        // Bucle principal de renderizado
         while (!appWindow.shouldClose()) {
             appWindow.pollEvents();
             renderer.drawFrame();
         }
         vkDeviceWaitIdle(renderer.getDevice());
-
     }
     catch (const std::exception& e) {
         std::cerr << "Fatal Error: " << e.what() << std::endl;

@@ -1,4 +1,4 @@
-// This file compiles the implementation code for single-header libraries
+// Este archivo compila el código de implementación para librerías de un solo header.
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
