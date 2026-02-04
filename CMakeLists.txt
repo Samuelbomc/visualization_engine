@@ -50,9 +50,10 @@ endif()
 
 # --- Create Executable ---
 add_executable(VulkanApp
-    main.cpp
-    main_app.cpp
-    window_creator.cpp
+    "src/main.cpp"
+    "src/main_app.cpp"
+    "src/window_creator.cpp"
+    "src/implementations.cpp"
 )
 
 # --- Link Dependencies ---
