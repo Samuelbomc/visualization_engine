@@ -1,4 +1,4 @@
-#include "main_app.hpp"
+#include "vulkan_renderer.hpp"
 
 // Constructor: crea y deja listo todo el pipeline de renderizado.
 VulkanRenderer::VulkanRenderer(WindowCreator& w) : window{ w } {

@@ -1,4 +1,4 @@
-#include "main_app.hpp"
+#include "vulkan_renderer.hpp"
 
 // Geometría de un cuadrado centrado en el origen.
 const std::vector<Vertex> vertices = {

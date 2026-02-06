@@ -1,6 +1,6 @@
 #pragma once
 
-#include "window_creator.hpp"
+#include "window/window_creator.hpp"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <optional>

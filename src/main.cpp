@@ -1,5 +1,5 @@
-#include "window_creator.hpp"
-#include "main_app.hpp"
+#include "window/window_creator.hpp"
+#include "vulkan/vulkan_renderer.hpp"
 #include <iostream>
 
 int main() {

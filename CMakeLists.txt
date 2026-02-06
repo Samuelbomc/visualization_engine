@@ -51,16 +51,20 @@ endif()
 # --- Crear ejecutable ---
 add_executable(VulkanApp
     "src/main.cpp"
-    "src/main_app.cpp"
-    "src/vulkan_renderer_geometry.cpp"
-    "src/vulkan_renderer_setup.cpp"
-    "src/vulkan_renderer_swapchain.cpp"
-    "src/vulkan_renderer_pipeline.cpp"
-    "src/vulkan_renderer_buffers.cpp"
-    "src/vulkan_renderer_descriptors.cpp"
-    "src/vulkan_renderer_commands.cpp"
-    "src/window_creator.cpp"
+    "src/vulkan/vulkan_renderer.cpp"
+    "src/vulkan/vulkan_renderer_geometry.cpp"
+    "src/vulkan/vulkan_renderer_setup.cpp"
+    "src/vulkan/vulkan_renderer_swapchain.cpp"
+    "src/vulkan/vulkan_renderer_pipeline.cpp"
+    "src/vulkan/vulkan_renderer_buffers.cpp"
+    "src/vulkan/vulkan_renderer_descriptors.cpp"
+    "src/vulkan/vulkan_renderer_commands.cpp"
+    "src/window/window_creator.cpp"
     "src/implementations.cpp"
+)
+
+target_include_directories(VulkanApp PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
 # --- Compilación de shaders ---
