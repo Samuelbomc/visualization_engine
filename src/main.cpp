@@ -4,12 +4,20 @@
 
 int main() {
     try {
-        WindowCreator appWindow(800, 600, "Vulkan Menu");
+        WindowCreator appWindow(1800, "Vulkan Menu");
         VulkanRenderer renderer(appWindow);
 
         // Bucle principal de renderizado
         while (!appWindow.shouldClose()) {
             appWindow.pollEvents();
+
+            static bool wasF11Down = false;
+            bool isF11Down = glfwGetKey(appWindow.getGLFWwindow(), GLFW_KEY_F11) == GLFW_PRESS;
+            if (isF11Down && !wasF11Down) {
+                appWindow.toggleFullscreen();
+            }
+            wasF11Down = isF11Down;
+
             renderer.drawFrame();
         }
         vkDeviceWaitIdle(renderer.getDevice());

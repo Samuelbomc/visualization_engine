@@ -11,10 +11,10 @@ public:
         int height;
     };
 
-    WindowCreator(int width, int height, std::string title);
+    WindowCreator(int width, std::string title);
     ~WindowCreator();
 
-    // Copia deshabilitada (la ventana es un recurso único).
+    // Copia deshabilitada (la ventana es un recurso único)    
     WindowCreator(const WindowCreator&) = delete;
     WindowCreator& operator=(const WindowCreator&) = delete;
 
@@ -25,6 +25,10 @@ public:
     GLFWwindow* getGLFWwindow() const { return window; }
     WindowDimensions getDimensions() const;
 
+    // Pantalla completa
+    void toggleFullscreen();
+    bool isFullscreen() const { return fullscreen; }
+
     // Ayudante para crear la superficie de Vulkan (puente entre ventana y Vulkan).
     void createSurface(VkInstance instance, VkSurfaceKHR* surface);
 
@@ -33,6 +37,15 @@ private:
     int width;
     int height;
     std::string title;
+
+    bool fullscreen = false;
+    int windowedX = 0;
+    int windowedY = 0;
+    int windowedWidth = 0;
+    int windowedHeight = 0;
+
+    int aspectWidth = 0;
+    int aspectHeight = 0;
 
     void initWindow();
 };
