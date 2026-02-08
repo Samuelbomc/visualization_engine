@@ -89,6 +89,18 @@ void VulkanRenderer::createRenderPass() {
     }
 }
 
+void VulkanRenderer::recreateGraphicsPipeline() {
+    if (graphicsPipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device, graphicsPipeline, nullptr);
+        graphicsPipeline = VK_NULL_HANDLE;
+    }
+    if (pipelineLayout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        pipelineLayout = VK_NULL_HANDLE;
+    }
+    createGraphicsPipeline();
+}
+
 void VulkanRenderer::createGraphicsPipeline() {
     const std::string shaderDir = SHADER_DIR;
     auto vertShaderCode = readFile(shaderDir + "/shader.vert.spv");
@@ -97,7 +109,6 @@ void VulkanRenderer::createGraphicsPipeline() {
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 
-    // 1. Etapas de shader
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -112,9 +123,9 @@ void VulkanRenderer::createGraphicsPipeline() {
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-    // 2. Input de vértices
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    // Input de vértices (configurable)
+    const auto& bindingDescription = geometry.bindingDescription;
+    const auto& attributeDescriptions = geometry.attributeDescriptions;
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -123,13 +134,11 @@ void VulkanRenderer::createGraphicsPipeline() {
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-    // 3. Ensamblado de primitivas
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.topology = geometry.topology;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    // 4. Viewport y scissor dinámicos
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
@@ -145,24 +154,21 @@ void VulkanRenderer::createGraphicsPipeline() {
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    // 5. Rasterizador
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE;
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL; // Rellenar triángulos
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = VK_CULL_MODE_NONE;
     rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
-    // 6. Multisampling (deshabilitado)
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    // 7. Mezcla de color
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_TRUE;
@@ -179,18 +185,16 @@ void VulkanRenderer::createGraphicsPipeline() {
     colorBlending.attachmentCount = 1;
     colorBlending.pAttachments = &colorBlendAttachment;
 
-    // 8. Pipeline layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 0; // Sin push constants
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create pipeline layout!");
     }
 
-    // 9. Crear el pipeline
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = 2;
@@ -210,7 +214,6 @@ void VulkanRenderer::createGraphicsPipeline() {
         throw std::runtime_error("Failed to create graphics pipeline!");
     }
 
-    // Limpieza de módulos de shader
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }

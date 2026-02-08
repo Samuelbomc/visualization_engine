@@ -47,9 +47,22 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
-// Geometría base del rectángulo.
-extern const std::vector<Vertex> vertices;
-extern const std::vector<uint16_t> indices;
+struct GeometryData {
+    std::vector<uint8_t> vertexData;
+    VkVertexInputBindingDescription bindingDescription{};
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    std::vector<uint8_t> indexData;
+    VkIndexType indexType = VK_INDEX_TYPE_UINT16;
+    uint32_t vertexCount = 0;
+    uint32_t indexCount = 0;
+};
+
+struct TransformData {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 class VulkanRenderer {
 public:
@@ -62,6 +75,14 @@ public:
 
     // Renderiza un frame completo.
     void drawFrame();
+
+    // Configuración en tiempo de ejecución
+    void setGeometry(const GeometryData& newGeometry);
+    void setTransform(const TransformData& transform);
+    void clearTransformOverride();
+
+    // Geometría por defecto (cuadrado).
+    static GeometryData createDefaultGeometry();
 
     // Acceso al dispositivo lógico.
     VkDevice getDevice() { return device; }
@@ -79,13 +100,13 @@ private:
     VkSwapchainKHR swapChain;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkPipeline graphicsPipeline = VK_NULL_HANDLE;
     VkCommandPool commandPool;
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+    VkBuffer vertexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
+    VkBuffer indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
     VkDescriptorSetLayout descriptorSetLayout;
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
@@ -101,6 +122,7 @@ private:
     void createImageViews();
     void createFramebuffers();
     void createGraphicsPipeline();
+    void recreateGraphicsPipeline();
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects();
@@ -113,6 +135,7 @@ private:
     void createDescriptorSets();
     void updateUniformBuffer(uint32_t currentImage);
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    bool isVertexLayoutDifferent(const GeometryData& other) const;
 
     // --- Capas de validación ---
     const std::vector<const char*> validationLayers = {
@@ -152,6 +175,9 @@ private:
 
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint32_t currentFrame = 0;
+
+    GeometryData geometry;
+    std::optional<TransformData> transformOverride;
 
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;

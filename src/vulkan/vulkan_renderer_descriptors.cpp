@@ -96,28 +96,32 @@ void VulkanRenderer::createDescriptorSets() {
     }
 }
 
+void VulkanRenderer::setTransform(const TransformData& transform) {
+    transformOverride = transform;
+}
+
+void VulkanRenderer::clearTransformOverride() {
+    transformOverride.reset();
+}
+
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
-    // Calculamos el tiempo delta para una animación suave
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
 
-    // 1. MODELO (Model): mueve el objeto en el mundo 3D.
-    // Aquí rotamos 'time * 90' grados sobre el eje Z (0,0,1).
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    if (transformOverride.has_value()) {
+        ubo.model = transformOverride->model;
+        ubo.view = transformOverride->view;
+        ubo.proj = transformOverride->proj;
+    }
+    else {
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+        ubo.proj[1][1] *= -1;
+    }
 
-    // 2. VISTA (View): simula la cámara.
-    // lookAt(PosiciónCámara, ADondeMira, CualEsEl"Arriba")
-    ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-
-    // 3. PROYECCIÓN (Projection): convierte 3D a 2D con perspectiva.
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-
-    // GLM usa Y invertido, Vulkan usa Y hacia abajo.
-    ubo.proj[1][1] *= -1;
-
-    // Copiamos los datos a la memoria mapeada de la GPU
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }

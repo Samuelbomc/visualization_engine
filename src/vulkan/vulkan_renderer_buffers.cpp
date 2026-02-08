@@ -42,31 +42,31 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
 }
 
 void VulkanRenderer::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+    VkDeviceSize bufferSize = static_cast<VkDeviceSize>(geometry.vertexData.size());
 
-    // Crear un buffer de vértices visible para la CPU
     createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBuffer, vertexBufferMemory);
 
-    // Copiar datos desde la CPU a la memoria GPU
     void* data;
     vkMapMemory(device, vertexBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferSize);
+    memcpy(data, geometry.vertexData.data(), (size_t)bufferSize);
     vkUnmapMemory(device, vertexBufferMemory);
 }
 
 void VulkanRenderer::createIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+    if (geometry.indexCount == 0) {
+        return;
+    }
 
-    // Crear buffer visible para índices
+    VkDeviceSize bufferSize = static_cast<VkDeviceSize>(geometry.indexData.size());
+
     createBuffer(bufferSize,
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         indexBuffer,
         indexBufferMemory);
 
-    // Copiar datos
     void* data;
     vkMapMemory(device, indexBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
+    memcpy(data, geometry.indexData.data(), (size_t)bufferSize);
     vkUnmapMemory(device, indexBufferMemory);
 }
