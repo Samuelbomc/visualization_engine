@@ -123,7 +123,7 @@ void VulkanRenderer::createGraphicsPipeline() {
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-    // Input de vértices (configurable)
+    const auto& geometry = mesh.getData();
     const auto& bindingDescription = geometry.bindingDescription;
     const auto& attributeDescriptions = geometry.attributeDescriptions;
 

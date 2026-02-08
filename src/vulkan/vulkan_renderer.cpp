@@ -11,11 +11,7 @@ VulkanRenderer::VulkanRenderer(WindowCreator& w) : window{ w } {
     createRenderPass();
     createFramebuffers();
     createDescriptorSetLayout();
-    geometry = createDefaultGeometry();
-    createGraphicsPipeline();
     createCommandPool();
-    createVertexBuffer();
-    createIndexBuffer();
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets();

@@ -1,61 +1,17 @@
 #pragma once
 
 #include "window/window_creator.hpp"
+#include "geometry/mesh.hpp"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <optional>
 #include <glm/glm.hpp>
-#include <array>
 #include <cstdint>
-
-struct Vertex {
-    glm::vec2 pos;
-    glm::vec3 color;
-
-    // Ayudante: describe la separación de los vértices en memoria.
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription{};
-        bindingDescription.binding = 0;
-        bindingDescription.stride = sizeof(Vertex);
-        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-        return bindingDescription;
-    }
-
-    // Ayudante: describe cómo se organizan los atributos (pos, color).
-    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-
-        // Posición (Location 0 en el shader)
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT; // vec2
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-        // Color (Location 1 en el shader)
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT; // vec3
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        return attributeDescriptions;
-    }
-};
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
-};
-
-struct GeometryData {
-    std::vector<uint8_t> vertexData;
-    VkVertexInputBindingDescription bindingDescription{};
-    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-    VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    std::vector<uint8_t> indexData;
-    VkIndexType indexType = VK_INDEX_TYPE_UINT16;
-    uint32_t vertexCount = 0;
-    uint32_t indexCount = 0;
 };
 
 struct TransformData {
@@ -77,12 +33,9 @@ public:
     void drawFrame();
 
     // Configuración en tiempo de ejecución
-    void setGeometry(const GeometryData& newGeometry);
+    void setMesh(const Mesh& newMesh);
     void setTransform(const TransformData& transform);
     void clearTransformOverride();
-
-    // Geometría por defecto (cuadrado).
-    static GeometryData createDefaultGeometry();
 
     // Acceso al dispositivo lógico.
     VkDevice getDevice() { return device; }
@@ -176,7 +129,7 @@ private:
     const int MAX_FRAMES_IN_FLIGHT = 2;
     uint32_t currentFrame = 0;
 
-    GeometryData geometry;
+    Mesh mesh;
     std::optional<TransformData> transformOverride;
 
     struct SwapChainSupportDetails {

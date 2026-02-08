@@ -42,6 +42,7 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
 }
 
 void VulkanRenderer::createVertexBuffer() {
+    const auto& geometry = mesh.getData();
     VkDeviceSize bufferSize = static_cast<VkDeviceSize>(geometry.vertexData.size());
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexBuffer, vertexBufferMemory);
@@ -53,6 +54,7 @@ void VulkanRenderer::createVertexBuffer() {
 }
 
 void VulkanRenderer::createIndexBuffer() {
+    const auto& geometry = mesh.getData();
     if (geometry.indexCount == 0) {
         return;
     }

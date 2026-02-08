@@ -61,7 +61,7 @@ add_executable(VulkanApp
     "src/vulkan/vulkan_renderer_commands.cpp"
     "src/window/window_creator.cpp"
     "src/implementations.cpp"
-)
+ "src/geometry/mesh.cpp")
 
 target_include_directories(VulkanApp PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
