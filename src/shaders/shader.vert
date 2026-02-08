@@ -1,7 +1,7 @@
 #version 450
 
 // Input Attributes (Position, Color)
-layout(location = 0) in vec2 inPosition;
+layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;
 
 // Output to Fragment Shader
@@ -15,7 +15,6 @@ layout(binding = 0) uniform UniformBufferObject {
 } ubo;
 
 void main() {
-    // Multiply the position by the matrices: Proj * View * Model * Position
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 0.0, 1.0);
+    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
     fragColor = inColor;
 }

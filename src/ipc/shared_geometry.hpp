@@ -43,6 +43,7 @@ struct SharedGeometryHeader {
     float model[16];
     float view[16];
     float proj[16];
+    uint32_t consumerSequence;
 };
 
 struct SharedGeometryBuffer {

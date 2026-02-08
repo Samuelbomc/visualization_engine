@@ -22,9 +22,11 @@ int main() {
             wasF11Down = isF11Down;
 
             SharedGeometryUpdate update{};
-            if (reader.tryRead(update) && update.hasGeometry) {
-                Mesh mesh(update.geometry);
-                renderer.setMesh(mesh);
+            if (reader.tryRead(update)) {
+                if (update.hasGeometry) {
+                    Mesh mesh(update.geometry);
+                    renderer.setMesh(mesh);
+                }
 
                 if (update.hasTransform) {
                     renderer.setTransform(update.transform);
