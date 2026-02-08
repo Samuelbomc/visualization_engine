@@ -1,5 +1,6 @@
 #include "window/window_creator.hpp"
 #include "vulkan/vulkan_renderer.hpp"
+#include "ipc/shared_geometry.hpp"
 #include <iostream>
 
 int main() {
@@ -7,7 +8,9 @@ int main() {
         WindowCreator appWindow(1800, "Vulkan Menu");
         VulkanRenderer renderer(appWindow);
 
-        // Bucle principal de renderizado
+        SharedGeometryReader reader;
+        reader.open();
+
         while (!appWindow.shouldClose()) {
             appWindow.pollEvents();
 
@@ -17,6 +20,19 @@ int main() {
                 appWindow.toggleFullscreen();
             }
             wasF11Down = isF11Down;
+
+            SharedGeometryUpdate update{};
+            if (reader.tryRead(update) && update.hasGeometry) {
+                Mesh mesh(update.geometry);
+                renderer.setMesh(mesh);
+
+                if (update.hasTransform) {
+                    renderer.setTransform(update.transform);
+                }
+                else {
+                    renderer.clearTransformOverride();
+                }
+            }
 
             renderer.drawFrame();
         }

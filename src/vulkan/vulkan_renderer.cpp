@@ -9,6 +9,7 @@ VulkanRenderer::VulkanRenderer(WindowCreator& w) : window{ w } {
     createSwapChain();
     createImageViews();
     createRenderPass();
+    createDepthResources();
     createFramebuffers();
     createDescriptorSetLayout();
     createCommandPool();
@@ -31,6 +32,17 @@ VulkanRenderer::~VulkanRenderer() {
         vkDestroyFramebuffer(device, framebuffer, nullptr);
     }
     vkDestroyRenderPass(device, renderPass, nullptr);
+
+    if (depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, depthImageView, nullptr);
+    }
+    if (depthImage != VK_NULL_HANDLE) {
+        vkDestroyImage(device, depthImage, nullptr);
+    }
+    if (depthImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, depthImageMemory, nullptr);
+    }
+
     for (auto imageView : swapChainImageViews) {
         vkDestroyImageView(device, imageView, nullptr);
     }

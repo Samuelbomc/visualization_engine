@@ -60,11 +60,26 @@ add_executable(VulkanApp
     "src/vulkan/vulkan_renderer_descriptors.cpp"
     "src/vulkan/vulkan_renderer_commands.cpp"
     "src/window/window_creator.cpp"
+    "src/geometry/mesh.cpp"
+    "src/ipc/shared_geometry.cpp"
     "src/implementations.cpp"
- "src/geometry/mesh.cpp")
+)
+
+add_executable(GeometryWriter
+    "tools/geometry_writer.cpp"
+)
 
 target_include_directories(VulkanApp PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
+target_include_directories(GeometryWriter PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
+target_link_libraries(GeometryWriter PRIVATE
+    Vulkan::Vulkan
+    glm::glm
 )
 
 # --- Compilación de shaders ---

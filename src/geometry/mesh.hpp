@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 
 struct Vertex {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 color;
 
     // Ayudante: describe la separación de los vértices en memoria.
@@ -26,7 +26,7 @@ struct Vertex {
         // Posición (Location 0 en el shader)
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT; // vec2
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT; // vec3
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
         // Color (Location 1 en el shader)

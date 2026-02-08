@@ -2,6 +2,7 @@
 
 #include "window/window_creator.hpp"
 #include "geometry/mesh.hpp"
+#include "geometry/transform.hpp"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <optional>
@@ -12,12 +13,6 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
-};
-
-struct TransformData {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
 };
 
 class VulkanRenderer {
@@ -64,6 +59,11 @@ private:
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
+    VkImage depthImage = VK_NULL_HANDLE;
+    VkDeviceMemory depthImageMemory = VK_NULL_HANDLE;
+    VkImageView depthImageView = VK_NULL_HANDLE;
+    VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+
     // --- Ayudantes de configuración ---
     void createInstance();
     void setupDebugMessenger();
@@ -79,6 +79,12 @@ private:
     void createCommandPool();
     void createCommandBuffers();
     void createSyncObjects();
+    void createDepthResources();
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    VkFormat findDepthFormat();
+    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    bool hasStencilComponent(VkFormat format) const;
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void createVertexBuffer();
     void createIndexBuffer();
