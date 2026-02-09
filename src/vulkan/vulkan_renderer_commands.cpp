@@ -1,38 +1,71 @@
+﻿// =============================================================================
+// vulkan_renderer_commands.cpp
+// Gestión de command pools, command buffers, objetos de sincronización,
+// grabación de comandos de renderizado y el bucle principal de dibujo (drawFrame).
+// =============================================================================
+
 #include "vulkan_renderer.hpp"
 #include <stdexcept>
 
+// -----------------------------------------------------------------------------
+// createCommandPool: crea el command pool de gráficos vinculado a la familia
+// de colas de gráficos, con el flag RESET_COMMAND_BUFFER_BIT para permitir
+// resetear command buffers individuales entre frames.
+// Si existe una familia de transferencia dedicada, crea un pool separado para
+// ella; si no, reutiliza el pool de gráficos.
+// -----------------------------------------------------------------------------
 void VulkanRenderer::createCommandPool() {
     QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT; // Permite resetear buffers individualmente
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
     if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create command pool!");
     }
+
+    if (queueFamilyIndices.transferFamily.has_value() &&
+        queueFamilyIndices.transferFamily.value() != queueFamilyIndices.graphicsFamily.value()) {
+        VkCommandPoolCreateInfo transferPoolInfo{};
+        transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        transferPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        transferPoolInfo.queueFamilyIndex = queueFamilyIndices.transferFamily.value();
+
+        if (vkCreateCommandPool(device, &transferPoolInfo, nullptr, &transferCommandPool) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create transfer command pool!");
+        }
+    }
+    else {
+        transferCommandPool = commandPool;
+    }
 }
 
+// -----------------------------------------------------------------------------
+// createCommandBuffers: asigna MAX_FRAMES_IN_FLIGHT command buffers primarios
+// del pool de gráficos, uno por cada frame en vuelo.
+// -----------------------------------------------------------------------------
 void VulkanRenderer::createCommandBuffers() {
-    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+    allocInfo.commandBufferCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers!");
     }
 }
 
+// -----------------------------------------------------------------------------
+// createSyncObjects: crea los primitivos de sincronización para cada frame:
+//   - imageAvailableSemaphores: la GPU los señaliza cuando adquiere una imagen.
+//   - renderFinishedSemaphores: la GPU los señaliza cuando termina el renderizado.
+//   - inFlightFences: la CPU espera en ellos para no sobreescribir recursos en uso.
+// Los fences se crean señalizados para que el primer frame no se bloquee.
+// -----------------------------------------------------------------------------
 void VulkanRenderer::createSyncObjects() {
-    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.resize(swapChainImages.size());
-    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -42,18 +75,25 @@ void VulkanRenderer::createSyncObjects() {
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create synchronization objects!");
-        }
-    }
-
-    for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) {
-        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS) {
             throw std::runtime_error("Failed to create synchronization objects!");
         }
     }
 }
 
+// -----------------------------------------------------------------------------
+// recordCommandBuffer: graba los comandos de renderizado para un frame.
+//   1. Inicia el render pass con los valores de limpieza (negro para color,
+//      1.0 para depth).
+//   2. Si hay geometría cargada y pipeline válido:
+//      a. Vincula el pipeline gráfico.
+//      b. Configura viewport y scissor dinámicos al tamaño del swapchain.
+//      c. Vincula el buffer de vértices.
+//      d. Vincula el descriptor set del frame actual (UBO).
+//      e. Ejecuta el dibujo: indexado si hay índices, directo si no.
+//   3. Finaliza el render pass y el command buffer.
+// -----------------------------------------------------------------------------
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -119,32 +159,41 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     }
 }
 
+// -----------------------------------------------------------------------------
+// drawFrame: ejecuta el ciclo completo de un frame de renderizado.
+//
+// Flujo de sincronización (con 2 frames en vuelo):
+//   CPU espera fence[N] → adquiere imagen → resetea fence[N] →
+//   graba comandos → submit con wait(imageAvailable[N]) y signal(renderFinished[N])
+//   y signal fence[N] → presenta con wait(renderFinished[N])
+//
+// Manejo de swapchain desactualizado:
+//   - Si vkAcquireNextImageKHR devuelve OUT_OF_DATE, recrea el swapchain y
+//     aborta el frame actual (el semáforo no fue consumido, pero el fence
+//     no se reseteó, así que el próximo frame funciona correctamente).
+//   - Si vkQueuePresentKHR devuelve OUT_OF_DATE, SUBOPTIMAL o se marcó
+//     framebufferResized, recrea el swapchain tras la presentación.
+// -----------------------------------------------------------------------------
 void VulkanRenderer::drawFrame() {
-    // 1. Sincronizaci�n CPU-GPU: esperar a que termine el frame anterior.
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
-    // 2. Obtener la siguiente imagen disponible del swapchain.
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-    // Manejo de redimensionamiento de ventana (Window Resize)
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // recrearSwapChain(); // TODO: Implementar si la ventana cambia de tama�o
+        recreateSwapChain();
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        throw std::runtime_error("Error al adquirir imagen del swap chain!");
+        throw std::runtime_error("Failed to acquire swap chain image!");
     }
 
-    // Reseteamos el fence solo si vamos a enviar trabajo.
     vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
-    // 3. Grabar comandos
     vkResetCommandBuffer(commandBuffers[currentFrame], 0);
     updateUniformBuffer(currentFrame);
     recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
-    // 4. Enviar a la cola de gr�ficos
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -157,15 +206,14 @@ void VulkanRenderer::drawFrame() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
 
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[imageIndex] };
+    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("Error al enviar command buffer!");
+        throw std::runtime_error("Failed to submit draw command buffer!");
     }
 
-    // 5. Presentar en pantalla
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
@@ -176,8 +224,15 @@ void VulkanRenderer::drawFrame() {
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
 
-    vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-    // Avanzar al siguiente frame (0 -> 1 -> 0 -> 1...)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
+        framebufferResized = false;
+        recreateSwapChain();
+    }
+    else if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to present swap chain image!");
+    }
+
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }

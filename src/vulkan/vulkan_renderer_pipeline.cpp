@@ -1,9 +1,23 @@
+// =============================================================================
+// vulkan_renderer_pipeline.cpp
+// Creación y recreación del pipeline gráfico de Vulkan.
+// El pipeline es un objeto compilado e inmutable que define cómo se procesan
+// los vértices y fragmentos: shaders, vertex input, rasterización, MSAA,
+// depth test, color blending y estados dinámicos.
+// =============================================================================
+
 #include "vulkan_renderer.hpp"
 #include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
+// -----------------------------------------------------------------------------
+// readFile: lee un archivo binario completo en un vector de bytes.
+// Se usa para cargar los shaders SPIR-V compilados desde disco.
+// Abre el archivo posicionándose al final (ate) para obtener el tamaño total,
+// luego rebobina y lee todo el contenido de una vez.
+// -----------------------------------------------------------------------------
 std::vector<char> VulkanRenderer::readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -21,6 +35,10 @@ std::vector<char> VulkanRenderer::readFile(const std::string& filename) {
     return buffer;
 }
 
+// -----------------------------------------------------------------------------
+// createShaderModule: envuelve bytecode SPIR-V en un VkShaderModule que puede
+// vincularse a una etapa del pipeline. El bytecode debe estar alineado a 4 bytes.
+// -----------------------------------------------------------------------------
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -34,6 +52,40 @@ VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
     return shaderModule;
 }
 
+// -----------------------------------------------------------------------------
+// loadShaderModules: lee los archivos SPIR-V del vertex y fragment shader
+// y crea módulos de shader que se cachean para toda la vida del renderer.
+// Esto evita releer los archivos desde disco cada vez que se recrea el pipeline.
+// -----------------------------------------------------------------------------
+void VulkanRenderer::loadShaderModules() {
+    const std::string shaderDir = SHADER_DIR;
+    auto vertShaderCode = readFile(shaderDir + "/shader.vert.spv");
+    auto fragShaderCode = readFile(shaderDir + "/shader.frag.spv");
+
+    cachedVertShaderModule = createShaderModule(vertShaderCode);
+    cachedFragShaderModule = createShaderModule(fragShaderCode);
+}
+
+// -----------------------------------------------------------------------------
+// destroyShaderModules: destruye los módulos de shader cacheados.
+// Se llama una sola vez en el destructor del renderer.
+// -----------------------------------------------------------------------------
+void VulkanRenderer::destroyShaderModules() {
+    if (cachedVertShaderModule != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, cachedVertShaderModule, nullptr);
+        cachedVertShaderModule = VK_NULL_HANDLE;
+    }
+    if (cachedFragShaderModule != VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, cachedFragShaderModule, nullptr);
+        cachedFragShaderModule = VK_NULL_HANDLE;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// recreateGraphicsPipeline: destruye el pipeline y layout existentes y los
+// recrea desde cero. Se invoca cuando cambia el layout de vértices, la
+// topología de la malla, o el render pass (tras recrear el swapchain).
+// -----------------------------------------------------------------------------
 void VulkanRenderer::recreateGraphicsPipeline() {
     if (graphicsPipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
@@ -46,24 +98,38 @@ void VulkanRenderer::recreateGraphicsPipeline() {
     createGraphicsPipeline();
 }
 
+// -----------------------------------------------------------------------------
+// createGraphicsPipeline: configura y crea el pipeline gráfico completo.
+//
+// Etapas del pipeline configuradas:
+//   1. Shader stages: vertex y fragment shader (módulos cacheados).
+//   2. Vertex input: describe el layout de los vértices de la malla actual
+//      (binding description y attribute descriptions dinámicos).
+//   3. Input assembly: topología de la geometría (ej: TRIANGLE_LIST).
+//   4. Viewport/scissor: dinámicos, configurados por frame en recordCommandBuffer.
+//   5. Rasterización: relleno de polígonos, culling de caras traseras (BACK_BIT),
+//      front face counter-clockwise.
+//   6. Multisampling: nivel de MSAA determinado al inicio, con sample shading
+//      habilitado para suavizar el interior de los polígonos (no solo bordes).
+//   7. Depth/stencil: depth test activado con COMPARE_OP_LESS.
+//   8. Color blending: desactivado (escritura directa de colores).
+//   9. Pipeline layout: referencia al descriptor set layout (UBO).
+//
+// Se usa el pipeline cache para acelerar la compilación si el driver puede
+// reutilizar resultados previos.
+// Los shader modules no se destruyen aquí porque están cacheados.
+// -----------------------------------------------------------------------------
 void VulkanRenderer::createGraphicsPipeline() {
-    const std::string shaderDir = SHADER_DIR;
-    auto vertShaderCode = readFile(shaderDir + "/shader.vert.spv");
-    auto fragShaderCode = readFile(shaderDir + "/shader.frag.spv");
-
-    VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
-    VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.module = cachedVertShaderModule;
     vertShaderStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.module = cachedFragShaderModule;
     fragShaderStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
@@ -105,14 +171,15 @@ void VulkanRenderer::createGraphicsPipeline() {
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.rasterizationSamples = msaaSamples;
+    multisampling.sampleShadingEnable = (msaaSamples != VK_SAMPLE_COUNT_1_BIT) ? VK_TRUE : VK_FALSE;
+    multisampling.minSampleShading = 0.2f;
 
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -158,10 +225,7 @@ void VulkanRenderer::createGraphicsPipeline() {
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create graphics pipeline!");
     }
-
-    vkDestroyShaderModule(device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(device, vertShaderModule, nullptr);
 }
