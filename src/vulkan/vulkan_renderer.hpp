@@ -63,10 +63,10 @@ private:
     VkDeviceMemory depthImageMemory = VK_NULL_HANDLE;
     VkImageView depthImageView = VK_NULL_HANDLE;
     VkFormat depthFormat = VK_FORMAT_UNDEFINED;
+    VkCommandBuffer beginSingleTimeCommands();
 
     // --- Ayudantes de configuración ---
     void createInstance();
-    void setupDebugMessenger();
     void createSurface();
     void pickPhysicalDevice();
     void createLogicalDevice();
@@ -151,4 +151,6 @@ private:
     static std::vector<char> readFile(const std::string& filename);
     VkShaderModule createShaderModule(const std::vector<char>& code);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 };

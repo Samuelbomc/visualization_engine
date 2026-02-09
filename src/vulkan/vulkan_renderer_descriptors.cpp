@@ -1,6 +1,5 @@
 #include "vulkan_renderer.hpp"
 #include <stdexcept>
-#include <iostream>
 #include <chrono>
 #include <cstring>
 #include <glm/gtc/matrix_transform.hpp>
@@ -20,11 +19,6 @@ void VulkanRenderer::createDescriptorSetLayout() {
 
     if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create descriptor set layout!");
-    }
-
-    if (descriptorSetLayout == VK_NULL_HANDLE) {
-        std::cerr << "CRITICAL ERROR: descriptorSetLayout is still NULL after creation!" << std::endl;
-        throw std::runtime_error("Descriptor Set Layout failed to initialize properly.");
     }
 }
 
@@ -76,7 +70,6 @@ void VulkanRenderer::createDescriptorSets() {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
-    // Poblar los descriptores
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
@@ -106,8 +99,12 @@ void VulkanRenderer::clearTransformOverride() {
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     static auto startTime = std::chrono::high_resolution_clock::now();
+    static VkExtent2D cachedExtent{};
+    static glm::mat4 cachedView(1.0f);
+    static glm::mat4 cachedProj(1.0f);
+
     auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    float time = std::chrono::duration<float>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
 
@@ -117,11 +114,22 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
         ubo.proj = transformOverride->proj;
     }
     else {
+        if (cachedExtent.width != swapChainExtent.width || cachedExtent.height != swapChainExtent.height) {
+            cachedView = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+                glm::vec3(0.0f, 0.0f, 0.0f),
+                glm::vec3(0.0f, 0.0f, 1.0f));
+
+            cachedProj = glm::perspective(glm::radians(45.0f),
+                swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+            cachedProj[1][1] *= -1;
+
+            cachedExtent = swapChainExtent;
+        }
+
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
+        ubo.view = cachedView;
+        ubo.proj = cachedProj;
     }
 
-    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    std::memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
